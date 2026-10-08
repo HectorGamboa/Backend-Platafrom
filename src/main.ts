@@ -10,7 +10,7 @@ async function main(){
  const app=await NestFactory.create(AppModule,{rawBody:true});
  app.use(helmet());
  app.enableCors({origin:(process.env.CORS_ORIGINS||'http://localhost:4200').split(',').map(x=>x.trim())});
- app.setGlobalPrefix('api/v1');
+ app.setGlobalPrefix('api/v1',{exclude:['player_api.php','get.php','live/:username/:password/:file','movie/:username/:password/:file','series/:username/:password/:file']});
  app.useGlobalPipes(new ValidationPipe({whitelist:true,forbidNonWhitelisted:true,transform:true}));
  app.useGlobalFilters(new HttpExceptionFilter());
  SwaggerModule.setup('docs',app,SwaggerModule.createDocument(app,new DocumentBuilder().setTitle('Veyra API').setVersion('1').addBearerAuth().build()));
