@@ -7,9 +7,9 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function main(){
  if(!process.env.JWT_SECRET || process.env.JWT_SECRET.length<32)throw new Error('JWT_SECRET must have at least 32 characters');
- const app=await NestFactory.create(AppModule);
+ const app=await NestFactory.create(AppModule,{rawBody:true});
  app.use(helmet());
- app.enableCors({origin:(process.env.CORS_ORIGINS||'http://localhost:4200').split(',')});
+ app.enableCors({origin:(process.env.CORS_ORIGINS||'http://localhost:4200').split(',').map(x=>x.trim())});
  app.setGlobalPrefix('api/v1');
  app.useGlobalPipes(new ValidationPipe({whitelist:true,forbidNonWhitelisted:true,transform:true}));
  app.useGlobalFilters(new HttpExceptionFilter());

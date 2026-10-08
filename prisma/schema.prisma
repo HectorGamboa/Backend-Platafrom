@@ -1,6 +1,8 @@
 generator client { provider = "prisma-client-js" }
 datasource db { provider = "mysql"; url = env("DATABASE_URL") }
 enum SubscriptionStatus { PENDING ACTIVE SUSPENDED CANCELLED EXPIRED }
+enum PlaybackStatus { ACTIVE ENDED }
+enum PaymentStatus { PENDING PAID FAILED REFUNDED }
 model User {
  id String @id @default(uuid()) @db.VarChar(36)
  email String @unique @db.VarChar(191)
@@ -11,6 +13,9 @@ model User {
  roles UserRole[]
  subscriptions Subscription[]
  devices DeviceSession[]
+ playbackSessions PlaybackSession[]
+ refreshTokens RefreshToken[]
+ orders PaymentOrder[]
 }
 model Role {
  id String @id @default(uuid()) @db.VarChar(36)
@@ -45,6 +50,7 @@ model Plan {
  maxConnections Int
  isActive Boolean @default(true)
  subscriptions Subscription[]
+ orders PaymentOrder[]
 }
 model Subscription {
  id String @id @default(uuid()) @db.VarChar(36)
@@ -55,6 +61,8 @@ model Subscription {
  endsAt DateTime?
  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
  plan Plan @relation(fields:[planId],references:[id])
+ playbackSessions PlaybackSession[]
+ orders PaymentOrder[]
  @@index([userId,status,endsAt])
 }
 model DeviceSession {
@@ -65,4 +73,63 @@ model DeviceSession {
  lastSeenAt DateTime @default(now())
  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
  @@unique([userId,deviceId])
+}
+model PlaybackSession {
+ id String @id @default(uuid()) @db.VarChar(36)
+ userId String @db.VarChar(36)
+ subscriptionId String @db.VarChar(36)
+ deviceId String @db.VarChar(191)
+ contentId String @db.VarChar(150)
+ status PlaybackStatus @default(ACTIVE)
+ startedAt DateTime @default(now())
+ lastHeartbeatAt DateTime @default(now())
+ expiresAt DateTime
+ endedAt DateTime?
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ subscription Subscription @relation(fields:[subscriptionId],references:[id],onDelete:Cascade)
+ @@index([userId,status,expiresAt])
+ @@index([deviceId,userId,status])
+}
+model RefreshToken {
+ id String @id @db.VarChar(36)
+ userId String @db.VarChar(36)
+ tokenHash String @db.VarChar(64)
+ familyId String @db.VarChar(36)
+ expiresAt DateTime
+ revokedAt DateTime?
+ createdAt DateTime @default(now())
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ @@index([userId,familyId])
+}
+model PaymentOrder {
+ id String @id @default(uuid()) @db.VarChar(36)
+ userId String @db.VarChar(36)
+ planId String @db.VarChar(36)
+ subscriptionId String? @unique @db.VarChar(36)
+ amountCents Int
+ currency String @default("MXN") @db.VarChar(3)
+ status PaymentStatus @default(PENDING)
+ provider String @default("manual") @db.VarChar(40)
+ providerPaymentId String? @unique @db.VarChar(191)
+ createdAt DateTime @default(now())
+ paidAt DateTime?
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ plan Plan @relation(fields:[planId],references:[id])
+ subscription Subscription? @relation(fields:[subscriptionId],references:[id])
+ @@index([userId,status])
+}
+model LicensedSource {
+ id String @id @default(uuid()) @db.VarChar(36)
+ contentId String @db.VarChar(120)
+ kind String @db.VarChar(20)
+ playbackUrl String @db.Text
+ rightsHolder String @db.VarChar(200)
+ licenseReference String @db.VarChar(200)
+ territory String @db.VarChar(5)
+ allowedCommercialUse Boolean @default(false)
+ validFrom DateTime
+ validUntil DateTime
+ isActive Boolean @default(false)
+ createdAt DateTime @default(now())
+ @@index([contentId,kind,territory,isActive])
 }

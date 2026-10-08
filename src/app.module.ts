@@ -12,5 +12,9 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { DevicesModule } from './modules/devices/devices.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { AdminModule } from './modules/admin/admin.module';
-@Module({imports:[ConfigModule.forRoot({isGlobal:true}),JwtModule.register({global:true,secret:process.env.JWT_SECRET||'DEVELOPMENT_ONLY_CHANGE_ME',signOptions:{expiresIn:'15m'}}),PrismaModule,AuthModule,PlansModule,SubscriptionsModule,DevicesModule,CatalogModule,AdminModule],providers:[{provide:APP_GUARD,useClass:AuthGuard},{provide:APP_GUARD,useClass:PermissionsGuard},{provide:APP_INTERCEPTOR,useClass:ResponseInterceptor}]})
+import { PlaybackModule } from './modules/playback/playback.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { ContentRightsModule } from './modules/content-rights/content-rights.module';
+import { CineproModule } from './modules/cinepro/cinepro.module';
+@Module({imports:[ConfigModule.forRoot({isGlobal:true}),JwtModule.register({global:true,secret:process.env.JWT_SECRET||'DEVELOPMENT_ONLY_CHANGE_ME',signOptions:{expiresIn:'15m'}}),PrismaModule,AuthModule,PlansModule,SubscriptionsModule,DevicesModule,CatalogModule,AdminModule,PlaybackModule,PaymentsModule,ContentRightsModule,CineproModule],providers:[{provide:APP_GUARD,useClass:AuthGuard},{provide:APP_GUARD,useClass:PermissionsGuard},{provide:APP_INTERCEPTOR,useClass:ResponseInterceptor}]})
 export class AppModule {}

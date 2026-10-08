@@ -1,11 +1,11 @@
 import { Injectable,ConflictException,UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto,LoginDto } from './dto/auth.dto';
+import { TokensService } from './tokens.service';
 @Injectable() export class AuthService{
- constructor(private repo:AuthRepository,private jwt:JwtService,private db:PrismaService){}
+ constructor(private repo:AuthRepository,private tokens:TokensService,private db:PrismaService){}
  async register(dto:RegisterDto){
   const email=dto.email.trim().toLowerCase();
   if(await this.repo.find(email))throw new ConflictException('Email exists');
@@ -16,5 +16,7 @@ import { RegisterDto,LoginDto } from './dto/auth.dto';
    return user;
   });
  }
- async login(dto:LoginDto){const user=await this.repo.find(dto.email.trim().toLowerCase());if(!user?.isActive || !(await bcrypt.compare(dto.password,user.passwordHash)))throw new UnauthorizedException('Invalid credentials');return {accessToken:await this.jwt.signAsync({sub:user.id}),tokenType:'Bearer'};}
+ async login(dto:LoginDto){const user=await this.repo.find(dto.email.trim().toLowerCase());if(!user?.isActive || !(await bcrypt.compare(dto.password,user.passwordHash)))throw new UnauthorizedException('Invalid credentials');return this.tokens.createPair(user.id);}
+ refresh(value:string){return this.tokens.rotate(value);}
+ logout(value:string){return this.tokens.revoke(value);}
 }
