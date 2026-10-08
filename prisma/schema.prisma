@@ -1,8 +1,27 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "mysql"; url = env("DATABASE_URL") }
-enum SubscriptionStatus { PENDING ACTIVE SUSPENDED CANCELLED EXPIRED }
-enum PlaybackStatus { ACTIVE ENDED }
-enum PaymentStatus { PENDING PAID FAILED REFUNDED }
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "mysql"
+  url = env("DATABASE_URL")
+}
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+enum PlaybackStatus {
+  ACTIVE
+  ENDED
+}
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
 model User {
  id String @id @default(uuid()) @db.VarChar(36)
  email String @unique @db.VarChar(191)
