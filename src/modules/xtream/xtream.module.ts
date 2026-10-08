@@ -1,4 +1,4 @@
-import {Controller,Get,Param,Query,Res,UnauthorizedException,BadRequestException,ForbiddenException,Injectable,Module} from '@nestjs/common';
+import {Controller,Get,Param,Query,Res,Req,UnauthorizedException,BadRequestException,ForbiddenException,Injectable,Module} from '@nestjs/common';
 import {Public} from '../../common/public.decorator';
 import {PrismaService} from '../../common/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -113,8 +113,9 @@ export class XtreamController{
   const result=await this.xtream.playlist(q.username,q.password);
   res.type('application/x-mpegURL').send(result);
  }
- @Public() @Get(':kind(live|movie|series)/:username/:password/:file') async stream(@Param() p:Record<string,string>,@Res() res:Response){
-  const url=await this.xtream.stream(p.kind,p.username,p.password,p.file);
+ @Public() @Get(['live/:username/:password/:file','movie/:username/:password/:file','series/:username/:password/:file']) async stream(@Param() p:Record<string,string>,@Res() res:Response,@Req() req:Request){
+  const kind=String((req as any).path||'').split('/')[1];
+  const url=await this.xtream.stream(kind,p.username,p.password,p.file);
   res.redirect(302,url);
  }
 }
