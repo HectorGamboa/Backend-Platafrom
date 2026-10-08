@@ -9,6 +9,8 @@ import { Public } from '../../common/public.decorator';
  @Public() @Get('movie/:id') movie(@Param('id') id:string){return this.service.details('movie',id);}
  @Public() @Get('series/genres') tvGenres(){return this.service.tvGenres();}
  @Public() @Get('series/:category') series(@Param('category') category:string,@Query() q:CatalogQueryDto){return this.service.series(category,q);}
+ @Public() @Get('series-detail/:id/seasons/:season/episodes/:episode') episode(@Param('id') id:string,@Param('season') season:string,@Param('episode') episode:string){return this.service.episode(id,season,episode);}
+ @Public() @Get('series-detail/:id/seasons/:season') season(@Param('id') id:string,@Param('season') season:string){return this.service.season(id,season);}
  @Public() @Get('series-detail/:id') seriesDetails(@Param('id') id:string){return this.service.details('tv',id);}
  @Public() @Get('search') search(@Query() q:CatalogQueryDto){return this.service.search(q);}
  @Public() @Get('tv/categories') categories(){return this.service.categories();}
