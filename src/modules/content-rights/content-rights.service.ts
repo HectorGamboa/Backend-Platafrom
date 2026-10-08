@@ -1,11 +1,24 @@
 import { Injectable,BadRequestException,ForbiddenException } from '@nestjs/common';
 import { ContentRightsRepository } from './content-rights.repository';
 import { CreateLicensedSourceDto } from './dto/rights.dto';
+import { MediaBulkImportDto } from './dto/media-bulk-import.dto';
 @Injectable() export class ContentRightsService{
  constructor(private readonly repo:ContentRightsRepository){}
  async create(dto:CreateLicensedSourceDto){
   if(new Date(dto.validFrom)>=new Date(dto.validUntil))throw new BadRequestException('Invalid license period');
   return this.repo.db.licensedSource.create({data:{...dto,validFrom:new Date(dto.validFrom),validUntil:new Date(dto.validUntil),isActive:false}});
+ }
+ async bulk(dto:MediaBulkImportDto){
+  if(!dto.allowedCommercialUse)throw new ForbiddenException('Distribution rights required');
+  if(new Date(dto.validFrom)>=new Date(dto.validUntil))throw new BadRequestException('Invalid period');
+  if(new Date(dto.validUntil)<=new Date())throw new BadRequestException('License expired');
+  const result=await this.repo.db.licensedSource.createMany({data:dto.entries.map(row=>({
+   kind:row.kind,contentId:row.contentId,playbackUrl:row.playbackUrl,
+   rightsHolder:dto.rightsHolder,licenseReference:dto.licenseReference,
+   territory:dto.territory,allowedCommercialUse:true,
+   validFrom:new Date(dto.validFrom),validUntil:new Date(dto.validUntil),isActive:false
+  }))});
+  return {created:result.count,active:0};
  }
  async activate(id:string){
   const source=await this.repo.db.licensedSource.findUnique({where:{id}});
