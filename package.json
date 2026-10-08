@@ -10,7 +10,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts",
     "test": "jest --runInBand",
-    "demo:seed": "ts-node prisma/seed-demo.ts"
+    "demo:seed": "ts-node prisma/seed-demo.ts",
+    "demo:subscription": "ts-node prisma/seed-demo-subscription.ts"
   },
   "jest": {
     "moduleFileExtensions": [
