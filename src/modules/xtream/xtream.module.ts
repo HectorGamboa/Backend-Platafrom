@@ -70,7 +70,8 @@ export class XtreamService {
    const licensedEpisodes=await this.sources('episode');
    const episodes:Record<string,unknown[]>={};
    const seasons=new Set<number>();
-   for(const item of licensedEpisodes){
+   for(const group of this.group(licensedEpisodes)){
+    const item=group[0];
     const match=/^(.*):(\d+):(\d+)$/.exec(item.contentId);
     if(!match||match[1]!==source.contentId)continue;
     const season=Number(match[2]),number=Number(match[3]);
