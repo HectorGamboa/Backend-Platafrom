@@ -19,6 +19,14 @@ export interface Channel{ id:string;name:string;country:string|null;category:str
   if(!/^\d+$/.test(id))throw new BadRequestException('Invalid TMDB id');
   try{return await this.repo.tmdb(kind+'/'+id);}catch{throw new ServiceUnavailableException('TMDB unavailable');}
  }
+ async season(id:string,season:string){
+  if(!/^\d+$/.test(id)||!/^\d+$/.test(season))throw new BadRequestException('Invalid series or season');
+  try{return await this.repo.tmdb('tv/'+id+'/season/'+season);}catch{throw new ServiceUnavailableException('TMDB unavailable');}
+ }
+ async episode(id:string,season:string,episode:string){
+  if(!/^\d+$/.test(id)||!/^\d+$/.test(season)||!/^\d+$/.test(episode))throw new BadRequestException('Invalid episode reference');
+  try{return await this.repo.tmdb('tv/'+id+'/season/'+season+'/episode/'+episode);}catch{throw new ServiceUnavailableException('TMDB unavailable');}
+ }
  async search(query:CatalogQueryDto){
   if(!query.search?.trim())throw new BadRequestException('Search text required');
   try{return await this.repo.tmdb('search/multi',{query:query.search,page:query.page});}catch{throw new ServiceUnavailableException('TMDB unavailable');}
