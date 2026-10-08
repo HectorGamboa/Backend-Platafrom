@@ -16,5 +16,6 @@ import { PlaybackModule } from './modules/playback/playback.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ContentRightsModule } from './modules/content-rights/content-rights.module';
 import { CineproModule } from './modules/cinepro/cinepro.module';
-@Module({imports:[ConfigModule.forRoot({isGlobal:true}),JwtModule.register({global:true,secret:process.env.JWT_SECRET||'DEVELOPMENT_ONLY_CHANGE_ME',signOptions:{expiresIn:'15m'}}),PrismaModule,AuthModule,PlansModule,SubscriptionsModule,DevicesModule,CatalogModule,AdminModule,PlaybackModule,PaymentsModule,ContentRightsModule,CineproModule],providers:[{provide:APP_GUARD,useClass:AuthGuard},{provide:APP_GUARD,useClass:PermissionsGuard},{provide:APP_INTERCEPTOR,useClass:ResponseInterceptor}]})
+import { MediaModule } from './modules/media/media.module';
+@Module({imports:[ConfigModule.forRoot({isGlobal:true}),JwtModule.register({global:true,secret:process.env.JWT_SECRET||'DEVELOPMENT_ONLY_CHANGE_ME',signOptions:{expiresIn:'15m'}}),PrismaModule,AuthModule,PlansModule,SubscriptionsModule,DevicesModule,CatalogModule,AdminModule,PlaybackModule,PaymentsModule,ContentRightsModule,CineproModule,MediaModule],providers:[{provide:APP_GUARD,useClass:AuthGuard},{provide:APP_GUARD,useClass:PermissionsGuard},{provide:APP_INTERCEPTOR,useClass:ResponseInterceptor}]})
 export class AppModule {}
