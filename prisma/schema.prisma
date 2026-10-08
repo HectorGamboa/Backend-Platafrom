@@ -1,0 +1,68 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "mysql"; url = env("DATABASE_URL") }
+enum SubscriptionStatus { PENDING ACTIVE SUSPENDED CANCELLED EXPIRED }
+model User {
+ id String @id @default(uuid()) @db.VarChar(36)
+ email String @unique @db.VarChar(191)
+ name String
+ passwordHash String
+ isActive Boolean @default(true)
+ createdAt DateTime @default(now())
+ roles UserRole[]
+ subscriptions Subscription[]
+ devices DeviceSession[]
+}
+model Role {
+ id String @id @default(uuid()) @db.VarChar(36)
+ name String @unique
+ users UserRole[]
+ permissions RolePermission[]
+}
+model Permission {
+ id String @id @default(uuid()) @db.VarChar(36)
+ code String @unique
+ roles RolePermission[]
+}
+model UserRole {
+ userId String @db.VarChar(36)
+ roleId String @db.VarChar(36)
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ role Role @relation(fields:[roleId],references:[id],onDelete:Cascade)
+ @@id([userId,roleId])
+}
+model RolePermission {
+ roleId String @db.VarChar(36)
+ permissionId String @db.VarChar(36)
+ role Role @relation(fields:[roleId],references:[id],onDelete:Cascade)
+ permission Permission @relation(fields:[permissionId],references:[id],onDelete:Cascade)
+ @@id([roleId,permissionId])
+}
+model Plan {
+ id String @id @default(uuid()) @db.VarChar(36)
+ name String
+ priceCents Int
+ durationDays Int
+ maxConnections Int
+ isActive Boolean @default(true)
+ subscriptions Subscription[]
+}
+model Subscription {
+ id String @id @default(uuid()) @db.VarChar(36)
+ userId String @db.VarChar(36)
+ planId String @db.VarChar(36)
+ status SubscriptionStatus @default(PENDING)
+ startsAt DateTime?
+ endsAt DateTime?
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ plan Plan @relation(fields:[planId],references:[id])
+ @@index([userId,status,endsAt])
+}
+model DeviceSession {
+ id String @id @default(uuid()) @db.VarChar(36)
+ userId String @db.VarChar(36)
+ deviceId String @db.VarChar(191)
+ revokedAt DateTime?
+ lastSeenAt DateTime @default(now())
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ @@unique([userId,deviceId])
+}
