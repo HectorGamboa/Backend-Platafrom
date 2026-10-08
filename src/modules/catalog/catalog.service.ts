@@ -2,7 +2,7 @@ import { Injectable,ServiceUnavailableException,BadRequestException } from '@nes
 import { CatalogRepository } from './catalog.repository';
 import { CatalogQueryDto } from './dto/catalog.dto';
 import { pageMeta } from '../../common/api-response.interface';
-interface Channel{ id:string;name:string;country:string|null;category:string|null;logo:string|null;url:string;group:string|null }
+export interface Channel{ id:string;name:string;country:string|null;category:string|null;logo:string|null;url:string;group:string|null }
 @Injectable() export class CatalogService{
  constructor(private readonly repo:CatalogRepository){}
  async movies(category='popular',query=new CatalogQueryDto()){
