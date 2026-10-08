@@ -1,4 +1,4 @@
-import {Controller,Get,Param,Query,Res,UnauthorizedException,BadRequestException,ForbiddenException,Injectable,Module} from '@nestjs/common';
+import {Controller,Get,Param,Query,Res,Req,UnauthorizedException,BadRequestException,ForbiddenException,Injectable,Module} from '@nestjs/common';
 import {Public} from '../../common/public.decorator';
 import {PrismaService} from '../../common/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -54,7 +54,26 @@ export class XtreamService {
    const rows=await this.sources('tv');
    const source=rows.find(s=>this.numeric(s.id)===Number(params.series_id));
    if(!source)return {};
-   return {info:{name:source.contentId,cover:'',plot:''},seasons:[],episodes:{}};
+   // Episode contentId convention: SERIES_CONTENT_ID:SEASON:EPISODE.
+   // Example: 1399:1:2 is episode 2 of season 1 of series 1399.
+   const licensedEpisodes=await this.sources('episode');
+   const episodes:Record<string,unknown[]>={};
+   const seasons=new Set<number>();
+   for(const item of licensedEpisodes){
+    const match=/^(.*):(\d+):(\d+)$/.exec(item.contentId);
+    if(!match||match[1]!==source.contentId)continue;
+    const season=Number(match[2]),number=Number(match[3]);
+    if(!Number.isSafeInteger(season)||!Number.isSafeInteger(number))continue;
+    seasons.add(season);
+    (episodes[String(season)] ||= []).push({
+     id:String(this.numeric(item.id)),episode_num:number,
+     title:'Episode '+number,container_extension:'mp4',season,
+     info:{movie_image:''}
+    });
+   }
+   for(const list of Object.values(episodes))list.sort((a:any,b:any)=>a.episode_num-b.episode_num);
+   return {info:{name:source.contentId,cover:'',plot:''},
+    seasons:[...seasons].sort((a,b)=>a-b).map(n=>({season_number:n,name:'Season '+n})),episodes};
   }
   if(action==='get_short_epg')return {epg_listings:[]};
   return [];
@@ -94,8 +113,9 @@ export class XtreamController{
   const result=await this.xtream.playlist(q.username,q.password);
   res.type('application/x-mpegURL').send(result);
  }
- @Public() @Get(':kind(live|movie|series)/:username/:password/:file') async stream(@Param() p:Record<string,string>,@Res() res:Response){
-  const url=await this.xtream.stream(p.kind,p.username,p.password,p.file);
+ @Public() @Get(['live/:username/:password/:file','movie/:username/:password/:file','series/:username/:password/:file']) async stream(@Param() p:Record<string,string>,@Res() res:Response,@Req() req:Request){
+  const kind=String((req as any).path||'').split('/')[1];
+  const url=await this.xtream.stream(kind,p.username,p.password,p.file);
   res.redirect(302,url);
  }
 }
