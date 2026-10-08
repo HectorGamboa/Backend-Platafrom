@@ -54,7 +54,26 @@ export class XtreamService {
    const rows=await this.sources('tv');
    const source=rows.find(s=>this.numeric(s.id)===Number(params.series_id));
    if(!source)return {};
-   return {info:{name:source.contentId,cover:'',plot:''},seasons:[],episodes:{}};
+   // Episode contentId convention: SERIES_CONTENT_ID:SEASON:EPISODE.
+   // Example: 1399:1:2 is episode 2 of season 1 of series 1399.
+   const licensedEpisodes=await this.sources('episode');
+   const episodes:Record<string,unknown[]>={};
+   const seasons=new Set<number>();
+   for(const item of licensedEpisodes){
+    const match=/^(.*):(\d+):(\d+)$/.exec(item.contentId);
+    if(!match||match[1]!==source.contentId)continue;
+    const season=Number(match[2]),number=Number(match[3]);
+    if(!Number.isSafeInteger(season)||!Number.isSafeInteger(number))continue;
+    seasons.add(season);
+    (episodes[String(season)] ||= []).push({
+     id:String(this.numeric(item.id)),episode_num:number,
+     title:'Episode '+number,container_extension:'mp4',season,
+     info:{movie_image:''}
+    });
+   }
+   for(const list of Object.values(episodes))list.sort((a:any,b:any)=>a.episode_num-b.episode_num);
+   return {info:{name:source.contentId,cover:'',plot:''},
+    seasons:[...seasons].sort((a,b)=>a-b).map(n=>({season_number:n,name:'Season '+n})),episodes};
   }
   if(action==='get_short_epg')return {epg_listings:[]};
   return [];
