@@ -12,7 +12,8 @@
     "test": "jest --runInBand",
     "demo:seed": "ts-node prisma/seed-demo.ts",
     "demo:live:seed": "ts-node prisma/seed-demo-live.ts",
-    "iptv:discover:mx": "ts-node prisma/import-public-channels.ts"
+    "iptv:discover:mx": "ts-node prisma/import-public-channels.ts",
+    "xtream:import:upstream": "ts-node prisma/import-upstream-xtream.ts"
   },
   "jest": {
     "moduleFileExtensions": [
