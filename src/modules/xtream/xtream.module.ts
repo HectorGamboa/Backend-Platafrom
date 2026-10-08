@@ -35,6 +35,33 @@ export class XtreamService {
   const now=new Date();
   return this.db.licensedSource.findMany({where:{isActive:true,allowedCommercialUse:true,territory:'MX',validFrom:{lte:now},validUntil:{gt:now},...(kind?{kind}:{})},orderBy:{createdAt:'asc'}});
  }
+ private readonly metadataCache=new Map<string,{expiry:number,value:any}>();
+ private async metadata(kind:'movie'|'tv',id:string):Promise<any|null>{
+  if(!/^\d+$/.test(id)||!process.env.TMDB_API_KEY)return null;
+  const key=kind+':'+id,now=Date.now(),cached=this.metadataCache.get(key);
+  if(cached&&cached.expiry>now)return cached.value;
+  try{
+   const url=new URL('https://api.themoviedb.org/3/'+kind+'/'+id);
+   url.searchParams.set('api_key',process.env.TMDB_API_KEY);
+   url.searchParams.set('language','es-MX');
+   const response=await fetch(url,{signal:AbortSignal.timeout(5500)});
+   if(!response.ok)return null;
+   const value=await response.json();
+   if(this.metadataCache.size>500)this.metadataCache.clear();
+   this.metadataCache.set(key,{expiry:now+3600000,value});
+   return value;
+  }catch{return null;}
+ }
+ private poster(path?:string){return path?'https://image.tmdb.org/t/p/w500'+path:'';}
+ private async decorate(source:{id:string,kind:string,contentId:string},kind:string){
+  const item=this.item(source,kind);
+  if(kind!=='movie'&&kind!=='tv')return item;
+  const m=await this.metadata(kind==='movie'?'movie':'tv',source.contentId);
+  if(!m)return item;
+  return {...item,name:m.title||m.name||source.contentId,
+   ...(kind==='movie'?{stream_icon:this.poster(m.poster_path)}:
+   {cover:this.poster(m.poster_path),releaseDate:m.first_air_date||''})};
+ }
  private category(kind:string){return [{category_id:'1',category_name:kind==='channel'?'Live TV':kind==='movie'?'Películas':'Series',parent_id:0}];}
  private item(source:{id:string,contentId:string,kind:string},kind:string){
   const id=this.numeric(source.kind+':'+source.contentId);
@@ -53,13 +80,14 @@ export class XtreamService {
    if(action.endsWith('_categories'))return this.category(kind);
    const rows=await this.sources(kind);
    if(params.category_id&&params.category_id!=='1')return [];
-   return this.group(rows).map(group=>this.item(group[0],kind));
+   return Promise.all(this.group(rows).map(group=>this.decorate(group[0],kind)));
   }
   if(action==='get_vod_info'){
    const rows=await this.sources('movie');
    const source=rows.find(s=>this.numeric(s.kind+':'+s.contentId)===Number(params.vod_id));
    if(!source)return {};
-   return {info:{name:source.contentId,movie_image:'',plot:'',rating:'',releasedate:''},movie_data:{stream_id:this.numeric(source.kind+':'+source.contentId),name:source.contentId,container_extension:'mp4',category_id:'1'}};
+   const m=await this.metadata('movie',source.contentId);
+   return {info:{name:m?.title||source.contentId,movie_image:this.poster(m?.poster_path),plot:m?.overview||'',rating:String(m?.vote_average||''),releasedate:m?.release_date||''},movie_data:{stream_id:this.numeric(source.kind+':'+source.contentId),name:m?.title||source.contentId,container_extension:'mp4',category_id:'1'}};
   }
   if(action==='get_series_info'){
    const rows=await this.sources('tv');
@@ -84,7 +112,8 @@ export class XtreamService {
     });
    }
    for(const list of Object.values(episodes))list.sort((a:any,b:any)=>a.episode_num-b.episode_num);
-   return {info:{name:source.contentId,cover:'',plot:''},
+   const m=await this.metadata('tv',source.contentId);
+   return {info:{name:m?.name||source.contentId,cover:this.poster(m?.poster_path),plot:m?.overview||'',rating:m?.vote_average||0,releaseDate:m?.first_air_date||''},
     seasons:[...seasons].sort((a,b)=>a-b).map(n=>({season_number:n,name:'Season '+n})),episodes};
   }
   if(action==='get_short_epg')return {epg_listings:[]};
