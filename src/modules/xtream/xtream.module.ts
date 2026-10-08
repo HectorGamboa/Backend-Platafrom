@@ -19,6 +19,17 @@ export class XtreamService {
   if(!subscription)throw new ForbiddenException('Active subscription required');
   return {user,subscription};
  }
+ // Different authorized origins sharing the same contentId represent one title.
+ private group(rows:Awaited<ReturnType<XtreamService['sources']>>){
+  const byId=new Map<string,typeof rows>();
+  for(const row of rows){
+   const key=row.kind+':'+row.contentId;
+   const group=byId.get(key)||[];
+   group.push(row);
+   byId.set(key,group);
+  }
+  return [...byId.values()];
+ }
  private numeric(id:string){const bytes=createHash('sha256').update(id).digest();return (bytes.readUInt32BE(0)&0x7fffffff)||1;}
  private async sources(kind?:string){
   const now=new Date();
@@ -26,7 +37,7 @@ export class XtreamService {
  }
  private category(kind:string){return [{category_id:'1',category_name:kind==='channel'?'Live TV':kind==='movie'?'Películas':'Series',parent_id:0}];}
  private item(source:{id:string,contentId:string,kind:string},kind:string){
-  const id=this.numeric(source.id);
+  const id=this.numeric(source.kind+':'+source.contentId);
   if(kind==='channel')return {num:id,name:source.contentId,stream_type:'live',stream_id:id,stream_icon:'',epg_channel_id:'',category_id:'1',added:'0'};
   if(kind==='movie')return {num:id,name:source.contentId,stream_type:'movie',stream_id:id,stream_icon:'',container_extension:'mp4',category_id:'1',added:'0'};
   return {num:id,name:source.contentId,series_id:id,cover:'',category_id:'1',releaseDate:''};
@@ -42,31 +53,32 @@ export class XtreamService {
    if(action.endsWith('_categories'))return this.category(kind);
    const rows=await this.sources(kind);
    if(params.category_id&&params.category_id!=='1')return [];
-   return rows.map(s=>this.item(s,kind));
+   return this.group(rows).map(group=>this.item(group[0],kind));
   }
   if(action==='get_vod_info'){
    const rows=await this.sources('movie');
-   const source=rows.find(s=>this.numeric(s.id)===Number(params.vod_id));
+   const source=rows.find(s=>this.numeric(s.kind+':'+s.contentId)===Number(params.vod_id));
    if(!source)return {};
-   return {info:{name:source.contentId,movie_image:'',plot:'',rating:'',releasedate:''},movie_data:{stream_id:this.numeric(source.id),name:source.contentId,container_extension:'mp4',category_id:'1'}};
+   return {info:{name:source.contentId,movie_image:'',plot:'',rating:'',releasedate:''},movie_data:{stream_id:this.numeric(source.kind+':'+source.contentId),name:source.contentId,container_extension:'mp4',category_id:'1'}};
   }
   if(action==='get_series_info'){
    const rows=await this.sources('tv');
-   const source=rows.find(s=>this.numeric(s.id)===Number(params.series_id));
+   const source=rows.find(s=>this.numeric(s.kind+':'+s.contentId)===Number(params.series_id));
    if(!source)return {};
    // Episode contentId convention: SERIES_CONTENT_ID:SEASON:EPISODE.
    // Example: 1399:1:2 is episode 2 of season 1 of series 1399.
    const licensedEpisodes=await this.sources('episode');
    const episodes:Record<string,unknown[]>={};
    const seasons=new Set<number>();
-   for(const item of licensedEpisodes){
+   for(const group of this.group(licensedEpisodes)){
+    const item=group[0];
     const match=/^(.*):(\d+):(\d+)$/.exec(item.contentId);
     if(!match||match[1]!==source.contentId)continue;
     const season=Number(match[2]),number=Number(match[3]);
     if(!Number.isSafeInteger(season)||!Number.isSafeInteger(number))continue;
     seasons.add(season);
     (episodes[String(season)] ||= []).push({
-     id:String(this.numeric(item.id)),episode_num:number,
+     id:String(this.numeric(item.kind+':'+item.contentId)),episode_num:number,
      title:'Episode '+number,container_extension:'mp4',season,
      info:{movie_image:''}
     });
@@ -83,9 +95,10 @@ export class XtreamService {
   const rows=await this.sources('channel');
   const base=(process.env.XTREAM_PUBLIC_URL||'http://localhost:3000').replace(/\/$/,'');
   const lines=['#EXTM3U'];
-  for(const source of rows){
+  for(const group of this.group(rows)){
+   const source=group[0];
    lines.push('#EXTINF:-1 group-title="Live TV",'+source.contentId);
-   lines.push(base+'/live/'+encodeURIComponent(username)+'/'+encodeURIComponent(password)+'/'+this.numeric(source.id)+'.ts');
+   lines.push(base+'/live/'+encodeURIComponent(username)+'/'+encodeURIComponent(password)+'/'+this.numeric(source.kind+':'+source.contentId)+'.ts');
   }
   return lines.join('\n')+'\n';
  }
@@ -97,12 +110,20 @@ export class XtreamService {
   const target=mapped[kind];
   if(!target)throw new BadRequestException('Invalid stream type');
   const sources=await this.sources(target);
-  const source=sources.find(s=>this.numeric(s.id)===numeric);
-  if(!source)throw new ForbiddenException('No authorized stream for this title');
-  const url=new URL(source.playbackUrl);
-  if(!['https:','http:'].includes(url.protocol))throw new ForbiddenException('Unsupported stream URL');
-  if(process.env.NODE_ENV==='production'&&url.protocol!=='https:')throw new ForbiddenException('HTTPS media source required');
-  return url.toString();
+  const candidates=sources.filter(s=>this.numeric(s.kind+':'+s.contentId)===numeric);
+  if(!candidates.length)throw new ForbiddenException('No authorized stream for this title');
+  // Choose the first acceptable configured origin. Other origins remain
+  // alternatives when a configuration is invalid, without exposing their URLs.
+  for(const source of candidates){
+   try{
+    const url=new URL(source.playbackUrl);
+    if(!['https:','http:'].includes(url.protocol))continue;
+    if(process.env.NODE_ENV==='production'&&url.protocol!=='https:')continue;
+    if(url.username||url.password)continue;
+    return url.toString();
+   }catch{continue;}
+  }
+  throw new ForbiddenException('No acceptable media origin for this title');
  }
 }
 @Controller()
